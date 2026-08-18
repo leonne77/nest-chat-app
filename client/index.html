@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Chat en temps réel</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #ece5dd;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    padding: 30px 10px;
+  }
+  .app {
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 640px;
+  }
+  .entete {
+    background: #075E54;
+    color: #fff;
+    padding: 16px 20px;
+  }
+  .entete h2 { margin: 0; font-size: 18px; }
+  .entete .sous-titre { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  .zone-pseudo {
+    padding: 10px 16px;
+    background: #f7f7f7;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .zone-pseudo input {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+
+  #messages {
+    list-style: none;
+    margin: 0;
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+    background: #ece5dd;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bulle {
+    max-width: 75%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.08);
+  }
+  .bulle .pseudo {
+    font-weight: bold;
+    font-size: 12px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .bulle .heure {
+    font-size: 10px;
+    opacity: 0.6;
+    display: block;
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  /* Message envoyé par MOI : aligné à droite, vert */
+  .moi {
+    align-self: flex-end;
+    background: #dcf8c6;
+    border-bottom-right-radius: 2px;
+  }
+  /* Message envoyé par quelqu'un d'autre : aligné à gauche, blanc */
+  .autre {
+    align-self: flex-start;
+    background: #fff;
+    border-bottom-left-radius: 2px;
+  }
+  .autre .pseudo { color: #075E54; }
+
+  #zoneEnvoi {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: #f7f7f7;
+    border-top: 1px solid #eee;
+  }
+  #contenu {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-size: 14px;
+    outline: none;
+  }
+  #contenu:focus { border-color: #25D366; }
+  button {
+    background: #075E54;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 0 20px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: #064c44; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="entete">
+    <h2> Chat en temps réel</h2>
+  </div>
+
+  <div class="zone-pseudo">
+    Pseudo :
+    <input id="pseudo" placeholder="Ex : Awa" value="Awa">
+  </div>
+
+  <ul id="messages"></ul>
+
+  <div id="zoneEnvoi">
+    <input id="contenu" placeholder="Écris ton message..." autocomplete="off">
+    <button onclick="envoyerMessage()">Envoyer</button>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  const socket = io('http://localhost:3000');
+
+  const listeMessages = document.getElementById('messages');
+  const champContenu = document.getElementById('contenu');
+  const champPseudo = document.getElementById('pseudo');
+
+  socket.on('historique', (messages) => {
+    messages.forEach(afficherMessage);
+  });
+
+  socket.on('message', (message) => {
+    afficherMessage(message);
+  });
+
+  function afficherMessage(message) {
+    // On compare le pseudo du message à MON pseudo actuel
+    // pour savoir si la bulle doit être verte (moi) ou blanche (autre)
+    const estMoi = message.pseudo === champPseudo.value;
+
+    const item = document.createElement('li');
+    item.className = 'bulle ' + (estMoi ? 'moi' : 'autre');
+
+    const heure = new Date(message.dateEnvoi).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    item.innerHTML = `
+      <span class="pseudo">${message.pseudo}</span>
+      ${message.contenu}
+      <span class="heure">${heure}</span>
+    `;
+
+    listeMessages.appendChild(item);
+    listeMessages.scrollTop = listeMessages.scrollHeight;
+  }
+
+  function envoyerMessage() {
+    const contenu = champContenu.value.trim();
+    if (!contenu) return;
+
+    socket.emit('message', {
+      pseudo: champPseudo.value || 'Anonyme',
+      contenu: contenu,
+    });
+
+    champContenu.value = '';
+  }
+
+  champContenu.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') envoyerMessage();
+  });
+</script>
+</body>
+</html>
